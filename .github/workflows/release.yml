@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            goos: linux
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+      - name: Install Linux native Fyne dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev zip
+      - name: Test
+        run: go test -count=1 ./...
+      - name: Package
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
+          CHANNEL: stable
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: ./scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/packages/*
+
+  publish:
+    needs: package
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/collected
+          merge-multiple: true
+      - name: Fail when signing key is absent
+        run: test -n "${UPDATE_SIGNING_PRIVATE_KEY_B64}"
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY_B64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
+      - name: Create checksums
+        run: |
+          cd dist/collected
+          sha256sum WarbandVault-* > checksums.txt
+      - name: Create update manifest
+        env:
+          VERSION: ${{ github.ref_name }}
+          BASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          go run ./cmd/manifest-tool create \
+            --version "${VERSION}" \
+            --minimum-launcher-version v1.0.0 \
+            --base-url "${BASE_URL}" \
+            --out dist/collected/update-manifest.json \
+            --artifact linux-amd64=dist/collected/WarbandVault-linux-amd64.tar.gz \
+            --artifact darwin-arm64=dist/collected/WarbandVault-darwin-arm64.zip \
+            --artifact darwin-amd64=dist/collected/WarbandVault-darwin-amd64.zip \
+            --artifact windows-amd64=dist/collected/WarbandVault-windows-amd64.zip
+      - name: Sign release metadata
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY_B64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_B64 }}
+        run: |
+          go run ./cmd/manifest-tool sign --in dist/collected/update-manifest.json
+          go run ./cmd/manifest-tool sign --in dist/collected/checksums.txt
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/collected/WarbandVault-*
+            dist/collected/checksums.txt
+            dist/collected/checksums.txt.sig
+            dist/collected/update-manifest.json
+            dist/collected/update-manifest.json.sig

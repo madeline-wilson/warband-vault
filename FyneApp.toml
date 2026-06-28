@@ -1,0 +1,10 @@
+[Details]
+Name = "Warband Vault"
+ID = "com.warbandvault.app"
+Version = "0.1.0"
+Build = 1
+
+[LinuxAndBSD]
+GenericName = "Campaign manager"
+Categories = ["Game", "Utility"]
+Comment = "Local-first campaign and character manager"

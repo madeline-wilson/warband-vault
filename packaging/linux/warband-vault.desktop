@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Warband Vault
+Comment=Local-first campaign and character manager
+Exec=warband-vault-launcher
+Icon=warband-vault
+Terminal=false
+Categories=Game;Utility;
