@@ -66,9 +66,13 @@ func Run(services *app.Services) {
 func (m *mainWindow) build() {
 	m.list = widget.NewList(
 		func() int { return len(m.campaigns) },
-		func() fyne.CanvasObject { return widget.NewLabel("Campaign") },
+		func() fyne.CanvasObject { return widget.NewLabel("") },
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			label := obj.(*widget.Label)
+			if id < 0 || id >= len(m.campaigns) {
+				label.SetText("")
+				return
+			}
 			c := m.campaigns[id]
 			name := c.Name
 			if c.Archived {
@@ -601,8 +605,14 @@ func (m *mainWindow) campaignSnapshot(ctx context.Context, selectedID string) ([
 }
 
 func (m *mainWindow) applySnapshot(campaigns []campaign.Campaign, selected *campaign.Campaign) {
+	m.suppress = true
+	m.list.UnselectAll()
+	m.suppress = false
 	m.campaigns = campaigns
 	m.list.Refresh()
+	for i := range m.campaigns {
+		m.list.RefreshItem(widget.ListItemID(i))
+	}
 	if selected != nil {
 		m.applySelectedCampaign(selected)
 		return
@@ -629,8 +639,12 @@ func (m *mainWindow) selectCampaignInList(id string) {
 		m.suppress = true
 		m.list.Select(widget.ListItemID(i))
 		m.suppress = false
+		m.list.RefreshItem(widget.ListItemID(i))
 		return
 	}
+	m.suppress = true
+	m.list.UnselectAll()
+	m.suppress = false
 }
 
 func (m *mainWindow) run(label string, fn func(context.Context) error) {
