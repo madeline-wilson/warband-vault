@@ -15,6 +15,8 @@ const (
 	maxConfigBytes = 1 << 20
 )
 
+const DefaultUpdateManifestURL = "https://github.com/madeline-wilson/warband-vault/releases/latest/download/update-manifest.json"
+
 type Paths struct {
 	RootDir    string
 	Database   string
@@ -32,7 +34,7 @@ type Settings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		UpdateCheckOnStartup: true,
-		UpdateManifestURL:    "https://github.com/example/warband-vault/releases/latest/download/update-manifest.json",
+		UpdateManifestURL:    DefaultUpdateManifestURL,
 	}
 }
 
@@ -92,7 +94,25 @@ func Load(path string) (Settings, error) {
 		}
 		return settings, fmt.Errorf("config was invalid and reset to defaults: %w", err)
 	}
+	if normalizeSettings(&settings) {
+		if err := Save(path, settings); err != nil {
+			return settings, err
+		}
+	}
 	return settings, nil
+}
+
+func normalizeSettings(settings *Settings) bool {
+	if settings == nil {
+		return false
+	}
+	switch settings.UpdateManifestURL {
+	case "", "https://github.com/example/warband-vault/releases/latest/download/update-manifest.json":
+		settings.UpdateManifestURL = DefaultUpdateManifestURL
+		return true
+	default:
+		return false
+	}
 }
 
 func Save(path string, settings Settings) error {

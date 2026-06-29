@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,5 +38,26 @@ func TestInvalidConfigRecovery(t *testing.T) {
 	}
 	if _, statErr := os.Stat(path); statErr != nil {
 		t.Fatalf("expected replacement config: %v", statErr)
+	}
+}
+
+func TestLoadMigratesPlaceholderManifestURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	body, err := json.Marshal(Settings{
+		UpdateCheckOnStartup: true,
+		UpdateManifestURL:    "https://github.com/example/warband-vault/releases/latest/download/update-manifest.json",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.UpdateManifestURL != DefaultUpdateManifestURL {
+		t.Fatalf("expected migrated manifest URL, got %q", settings.UpdateManifestURL)
 	}
 }
