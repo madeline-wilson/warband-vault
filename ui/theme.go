@@ -12,7 +12,7 @@ type vaultTheme struct {
 }
 
 func newVaultTheme() fyne.Theme {
-	return vaultTheme{base: theme.DarkTheme()}
+	return vaultTheme{base: theme.DefaultTheme()}
 }
 
 func (t vaultTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
