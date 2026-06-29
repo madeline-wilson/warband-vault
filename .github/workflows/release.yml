@@ -94,7 +94,7 @@ jobs:
         run: |
           go run ./cmd/manifest-tool create \
             --version "${VERSION}" \
-            --minimum-launcher-version v1.0.0 \
+            --minimum-launcher-version v0.1.0 \
             --base-url "${BASE_URL}" \
             --out dist/collected/update-manifest.json \
             --artifact linux-amd64=dist/collected/WarbandVault-linux-amd64.tar.gz \
