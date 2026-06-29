@@ -16,14 +16,11 @@ Warband Vault release builds are currently not signed with paid Windows or Apple
 2. Move `Warband Vault.app` to `/Applications` before launching it. This avoids macOS App Translocation, which can prevent updates from writing files.
 3. Right-click `Warband Vault.app`, choose **Open**, then confirm **Open**.
 4. If macOS still blocks it, open **System Settings** → **Privacy & Security**, then click **Open Anyway** for Warband Vault.
+<img width="686" height="101" alt="image" src="https://github.com/user-attachments/assets/a9b14050-c70a-4004-b092-28ba3058ed37" />
 
-Warband Vault is a local-first campaign and character manager for miniature wargames, skirmish games, and tabletop role-playing games. It stores campaign data on the user’s machine, exports readable JSON, generates printable HTML rosters, and uses signed release metadata for secure self-updates. The application will check for an update automatically when launched and prompt you if one is available. Otherwise, you can always check yourself by clicking the update button at the top:
+### Application
 
-<img width="42" height="30" alt="image" src="https://github.com/user-attachments/assets/d396eaaf-9855-4c7e-b6da-c06038b3ebf7" />
-
-If one is available, this is the prompt you'll see to accept the update:
-<img width="378" height="173" alt="image" src="https://github.com/user-attachments/assets/217ba850-b00d-48b9-98fb-77e9f24807e3" />
-
+Warband Vault is a local-first campaign and character manager for miniature wargames, skirmish games, and tabletop role-playing games. It stores campaign data on the user’s machine, exports readable JSON, generates printable HTML rosters, and uses signed release metadata for secure self-updates. 
 
 - Main campaign roster:
 <img width="220" height="360" alt="image" src="https://github.com/user-attachments/assets/c773076a-4009-4843-a0dd-5189efd15bd8" />
@@ -34,6 +31,11 @@ If one is available, this is the prompt you'll see to accept the update:
 - Update dialog:
 <img width="393" height="175" alt="image" src="https://github.com/user-attachments/assets/d7dada24-c053-47cd-910f-ec40246e80e4" />
 
+## Updating
+The application will check for an update automatically when launched and prompt you if one is available. Otherwise, you can always check yourself by clicking the update button at the top.
+<img width="42" height="30" alt="image" src="https://github.com/user-attachments/assets/d396eaaf-9855-4c7e-b6da-c06038b3ebf7" />
+If one is available, this is the prompt you'll see to accept the update:  
+<img width="378" height="173" alt="image" src="https://github.com/user-attachments/assets/217ba850-b00d-48b9-98fb-77e9f24807e3" />
 
 ## Supported Platforms
 
