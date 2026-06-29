@@ -60,5 +60,16 @@ jobs:
       - name: Install Linux native Fyne dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+      - name: Install Windows native Fyne dependencies
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+      - name: Add MinGW to PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Build commands
         run: go build ./cmd/...
