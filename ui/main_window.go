@@ -36,17 +36,18 @@ import (
 )
 
 type mainWindow struct {
-	services  *app.Services
-	fyneApp   fyne.App
-	window    fyne.Window
-	campaigns []campaign.Campaign
-	selected  *campaign.Campaign
-	list      *widget.List
-	listHost  *fyne.Container
-	roster    *fyne.Container
-	status    binding.String
-	busy      bool
-	suppress  bool
+	services    *app.Services
+	fyneApp     fyne.App
+	window      fyne.Window
+	campaigns   []campaign.Campaign
+	selected    *campaign.Campaign
+	list        *widget.List
+	listHost    *fyne.Container
+	roster      *fyne.Container
+	status      binding.String
+	busy        bool
+	suppress    bool
+	checkOnOpen bool
 }
 
 func Run(services *app.Services) {
@@ -61,6 +62,7 @@ func Run(services *app.Services) {
 		roster:   container.NewVBox(widget.NewLabel("")),
 		status:   binding.NewString(),
 	}
+	m.checkOnOpen = services.Settings.UpdateCheckOnStartup
 	_ = m.status.Set("Ready")
 	m.build()
 	m.loadCampaigns()
@@ -489,20 +491,40 @@ func (m *mainWindow) showSettings() {
 }
 
 func (m *mainWindow) checkForUpdates() {
+	m.checkForUpdatesPrompt(false)
+}
+
+func (m *mainWindow) checkForUpdatesOnOpen() {
+	m.checkForUpdatesPrompt(true)
+}
+
+func (m *mainWindow) checkForUpdatesPrompt(quiet bool) {
 	settings := m.services.Settings
 	m.run("Checking for updates", func(ctx context.Context) error {
 		keyBytes, err := assets.Files.ReadFile("update_public_key.txt")
 		if err != nil {
+			if quiet {
+				m.services.Logger.Warn("startup update check failed", "error", err)
+				return nil
+			}
 			return err
 		}
 		publicKey, err := update.DecodePublicKeyB64(string(keyBytes))
 		if err != nil {
+			if quiet {
+				m.services.Logger.Warn("startup update check failed", "error", err)
+				return nil
+			}
 			return err
 		}
 		allowHTTP := isLocalHTTP(settings.UpdateManifestURL)
 		downloader := update.NewDownloader(20*time.Second, m.services.Logger)
 		manifest, _, err := downloader.FetchSignedManifest(ctx, settings.UpdateManifestURL, publicKey)
 		if err != nil {
+			if quiet {
+				m.services.Logger.Warn("startup update check failed", "error", err)
+				return nil
+			}
 			return err
 		}
 		selection, err := manifest.Select(update.SelectionOptions{
@@ -513,7 +535,13 @@ func (m *mainWindow) checkForUpdates() {
 		})
 		if err != nil {
 			if err == update.ErrNoUpdate {
-				fyne.Do(func() { dialog.ShowInformation("Updates", "Warband Vault is up to date.", m.window) })
+				if !quiet {
+					fyne.Do(func() { dialog.ShowInformation("Updates", "Warband Vault is up to date.", m.window) })
+				}
+				return nil
+			}
+			if quiet {
+				m.services.Logger.Warn("startup update check failed", "error", err)
 				return nil
 			}
 			return err
@@ -704,6 +732,10 @@ func (m *mainWindow) run(label string, fn func(context.Context) error) {
 				return
 			}
 			_ = m.status.Set("Ready")
+			if m.checkOnOpen {
+				m.checkOnOpen = false
+				m.checkForUpdatesOnOpen()
+			}
 		})
 	}()
 }
