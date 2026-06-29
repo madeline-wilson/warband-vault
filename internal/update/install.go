@@ -90,7 +90,7 @@ func CheckInstallRootWritable(installRoot string) error {
 		return fmt.Errorf("install root is required")
 	}
 	if IsAppTranslocationPath(installRoot) {
-		return fmt.Errorf("Warband Vault is running from a read-only macOS App Translocation path. Move Warband Vault.app to Applications, launch it from there, then try the update again")
+		return fmt.Errorf("app is running from a read-only macOS App Translocation path; move Warband Vault.app to Applications, launch it from there, then try the update again")
 	}
 	downloadDir := filepath.Join(installRoot, "downloads")
 	if err := os.MkdirAll(downloadDir, 0o755); err != nil {
