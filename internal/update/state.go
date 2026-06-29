@@ -41,7 +41,8 @@ func ValidateState(root string, state State) error {
 	if state.RelativeExecutable == "" {
 		return fmt.Errorf("state executable is required")
 	}
-	if filepath.IsAbs(state.RelativeExecutable) || filepath.VolumeName(state.RelativeExecutable) != "" || strings.HasPrefix(state.RelativeExecutable, `\\`) {
+	normalizedExecutable := strings.ReplaceAll(state.RelativeExecutable, `\`, `/`)
+	if strings.HasPrefix(state.RelativeExecutable, `\\`) || strings.HasPrefix(normalizedExecutable, "/") || filepath.IsAbs(state.RelativeExecutable) || filepath.VolumeName(state.RelativeExecutable) != "" {
 		return fmt.Errorf("state executable must be relative")
 	}
 	_, err := ResolveExecutable(root, state)

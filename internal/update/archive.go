@@ -197,7 +197,7 @@ func safeJoin(root, name string) (string, error) {
 		return "", fmt.Errorf("archive path is empty")
 	}
 	normalizedSeparators := strings.ReplaceAll(name, `\`, `/`)
-	if strings.HasPrefix(name, `\\`) || filepath.IsAbs(name) || filepath.VolumeName(name) != "" || hasWindowsDriveName(name) || strings.HasPrefix(normalizedSeparators, "../") || strings.Contains(normalizedSeparators, "/../") {
+	if strings.HasPrefix(name, `\\`) || strings.HasPrefix(normalizedSeparators, "/") || filepath.IsAbs(name) || filepath.VolumeName(name) != "" || hasWindowsDriveName(name) || strings.HasPrefix(normalizedSeparators, "../") || strings.Contains(normalizedSeparators, "/../") {
 		return "", fmt.Errorf("archive path %q is absolute", name)
 	}
 	clean := filepath.Clean(normalizedSeparators)
