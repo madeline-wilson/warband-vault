@@ -563,6 +563,9 @@ func (m *mainWindow) showUpdateDialog(selection update.Selection, allowHTTP bool
 			return
 		}
 		m.run("Installing update", func(ctx context.Context) error {
+			if err := update.CheckInstallRootWritable(installRoot); err != nil {
+				return err
+			}
 			downloader := update.NewDownloader(30*time.Second, m.services.Logger)
 			packagePath, err := downloader.DownloadArtifact(ctx, selection.Asset.URL, filepath.Join(installRoot, "downloads"), selection.Asset.Size, selection.Asset.SHA256, allowHTTP)
 			if err != nil {

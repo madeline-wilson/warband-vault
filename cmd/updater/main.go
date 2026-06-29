@@ -38,6 +38,10 @@ func main() {
 
 	if *stagePackage != "" {
 		root := requiredRoot(*installRoot)
+		if err := update.CheckInstallRootWritable(root); err != nil {
+			fmt.Fprintf(os.Stderr, "install root is not writable: %v\n", err)
+			os.Exit(1)
+		}
 		version := *stageVersion
 		if version == "" {
 			fmt.Fprintln(os.Stderr, "--stage-version is required with --stage-package")
@@ -94,6 +98,10 @@ func main() {
 	fmt.Printf("Update available: %s\n", selection.Version)
 	if *downloadOnly || *install {
 		root := requiredRoot(*installRoot)
+		if err := update.CheckInstallRootWritable(root); err != nil {
+			fmt.Fprintf(os.Stderr, "install root is not writable: %v\n", err)
+			os.Exit(1)
+		}
 		path, err := downloader.DownloadArtifact(ctx, selection.Asset.URL, filepath.Join(root, "downloads"), selection.Asset.Size, selection.Asset.SHA256, *allowHTTP)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "download failed: %v\n", err)

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"warband-vault/internal/platform"
@@ -82,6 +83,37 @@ func StageVersion(ctx context.Context, opts InstallOptions) (State, error) {
 		opts.Logger.Info("version staged", "version", opts.Version, "executable", next.RelativeExecutable)
 	}
 	return next, nil
+}
+
+func CheckInstallRootWritable(installRoot string) error {
+	if installRoot == "" {
+		return fmt.Errorf("install root is required")
+	}
+	if IsAppTranslocationPath(installRoot) {
+		return fmt.Errorf("Warband Vault is running from a read-only macOS App Translocation path. Move Warband Vault.app to Applications, launch it from there, then try the update again")
+	}
+	downloadDir := filepath.Join(installRoot, "downloads")
+	if err := os.MkdirAll(downloadDir, 0o755); err != nil {
+		return fmt.Errorf("create downloads directory: %w", err)
+	}
+	probe, err := os.CreateTemp(downloadDir, ".write-test-*")
+	if err != nil {
+		return fmt.Errorf("install location is not writable: %w", err)
+	}
+	probeName := probe.Name()
+	closeErr := probe.Close()
+	removeErr := os.Remove(probeName)
+	if closeErr != nil {
+		return fmt.Errorf("close write test file: %w", closeErr)
+	}
+	if removeErr != nil {
+		return fmt.Errorf("remove write test file: %w", removeErr)
+	}
+	return nil
+}
+
+func IsAppTranslocationPath(path string) bool {
+	return strings.Contains(filepath.ToSlash(path), "/AppTranslocation/")
 }
 
 func findVersionPayload(staging, version, mainExecutable, updaterExecutable string) (string, error) {

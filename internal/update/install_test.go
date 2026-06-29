@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -39,6 +40,32 @@ func TestStageVersionFromFullInstallArchive(t *testing.T) {
 	}
 	if _, err := CurrentState(root); err != nil {
 		t.Fatalf("expected current state: %v", err)
+	}
+}
+
+func TestCheckInstallRootWritableAllowsTempDir(t *testing.T) {
+	if err := CheckInstallRootWritable(t.TempDir()); err != nil {
+		t.Fatalf("expected writable install root: %v", err)
+	}
+}
+
+func TestCheckInstallRootWritableRejectsAppTranslocation(t *testing.T) {
+	root := "/private/var/folders/_7/example/T/AppTranslocation/977D5649-CBEC-42E6-8606-31A8F7BD4186/d/Warband Vault.app/Contents/Resources/WarbandVault"
+	err := CheckInstallRootWritable(root)
+	if err == nil {
+		t.Fatal("expected App Translocation rejection")
+	}
+	if !strings.Contains(err.Error(), "App Translocation") {
+		t.Fatalf("expected App Translocation error, got %v", err)
+	}
+}
+
+func TestIsAppTranslocationPath(t *testing.T) {
+	if !IsAppTranslocationPath("/private/var/folders/x/T/AppTranslocation/id/d/Warband Vault.app/Contents/Resources/WarbandVault") {
+		t.Fatal("expected App Translocation path to be detected")
+	}
+	if IsAppTranslocationPath("/Applications/Warband Vault.app/Contents/Resources/WarbandVault") {
+		t.Fatal("expected normal Applications path not to be detected")
 	}
 }
 

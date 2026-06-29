@@ -1,5 +1,22 @@
 # Warband Vault
 
+## First Run Security Prompts
+
+Warband Vault release builds are currently not signed with paid Windows or Apple Developer certificates. If your operating system warns that the app is from an unknown publisher, use these steps only if you downloaded it from this repository's GitHub Releases page.
+
+### Windows
+
+1. Download and extract the Windows ZIP.
+2. If Windows blocks the ZIP or extracted app, right-click the ZIP or app, choose **Properties**, check **Unblock**, then click **Apply**.
+3. When Microsoft Defender SmartScreen appears, click **More info**, then **Run anyway**.
+
+### macOS
+
+1. Download and extract the macOS ZIP.
+2. Move `Warband Vault.app` to `/Applications` before launching it. This avoids macOS App Translocation, which can prevent updates from writing files.
+3. Right-click `Warband Vault.app`, choose **Open**, then confirm **Open**.
+4. If macOS still blocks it, open **System Settings** → **Privacy & Security**, then click **Open Anyway** for Warband Vault.
+
 Warband Vault is a local-first campaign and character manager for miniature wargames, skirmish games, and tabletop role-playing games. It stores campaign data on the user’s machine, exports readable JSON, generates printable HTML rosters, and uses signed release metadata for secure self-updates. The application will check for an update automatically when launched and prompt you if one is available. Otherwise, you can always check yourself by clicking the update button at the top:
 
 <img width="42" height="30" alt="image" src="https://github.com/user-attachments/assets/d396eaaf-9855-4c7e-b6da-c06038b3ebf7" />
