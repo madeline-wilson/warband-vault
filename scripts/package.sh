@@ -53,8 +53,11 @@ elif [[ "${GOOS_VALUE}" == "windows" ]]; then
   fi
 elif [[ "${GOOS_VALUE}" == "darwin" ]]; then
   app_root="${work}/Warband Vault.app"
+  resources_root="${app_root}/Contents/Resources/WarbandVault"
   mkdir -p "${app_root}/Contents/MacOS" "${app_root}/Contents/Resources"
-  cp "${version_dir}/warband-vault" "${app_root}/Contents/MacOS/Warband Vault"
+  cp "${install_root}/warband-vault-launcher" "${app_root}/Contents/MacOS/Warband Vault"
+  mkdir -p "${resources_root}"
+  cp -R "${install_root}/." "${resources_root}/"
   cp packaging/macos/Info.plist "${app_root}/Contents/Info.plist"
   if [[ -f assets/icon.png ]]; then
     cp assets/icon.png "${app_root}/Contents/Resources/icon.png"

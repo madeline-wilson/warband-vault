@@ -1,11 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strings"
 
 	"warband-vault/internal/buildinfo"
 	"warband-vault/internal/platform"
@@ -13,21 +12,23 @@ import (
 )
 
 func main() {
-	version := flag.Bool("version", false, "print launcher version")
-	installRoot := flag.String("install-root", "", "installation root containing state/current.json")
-	flag.Parse()
-	if *version {
+	opts, appArgs, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse launcher arguments: %v\n", err)
+		os.Exit(2)
+	}
+	if opts.version {
 		fmt.Printf("warband-vault-launcher %s\n", buildinfo.Version)
 		return
 	}
-	root := *installRoot
+	root := opts.installRoot
 	if root == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "resolve launcher path: %v\n", err)
 			os.Exit(1)
 		}
-		root = filepath.Dir(executable)
+		root = platform.InstallRootFromExecutable(executable)
 	}
 	state, err := update.CurrentState(root)
 	if err != nil {
@@ -39,7 +40,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "resolve application executable: %v\n", err)
 		os.Exit(1)
 	}
-	cmd := exec.Command(target, flag.Args()...)
+	cmd := exec.Command(target, appArgs...)
 	cmd.Env = append(os.Environ(), platform.InstallRootEnv+"="+root)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -48,4 +49,37 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Warband Vault exited with an error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+type launcherOptions struct {
+	version     bool
+	installRoot string
+}
+
+func parseArgs(args []string) (launcherOptions, []string, error) {
+	var opts launcherOptions
+	var appArgs []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			appArgs = append(appArgs, args[i+1:]...)
+			return opts, appArgs, nil
+		case arg == "-version" || arg == "--version":
+			opts.version = true
+		case arg == "-install-root" || arg == "--install-root":
+			if i+1 >= len(args) {
+				return opts, nil, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			opts.installRoot = args[i]
+		case strings.HasPrefix(arg, "-install-root="):
+			opts.installRoot = strings.TrimPrefix(arg, "-install-root=")
+		case strings.HasPrefix(arg, "--install-root="):
+			opts.installRoot = strings.TrimPrefix(arg, "--install-root=")
+		default:
+			appArgs = append(appArgs, arg)
+		}
+	}
+	return opts, appArgs, nil
 }

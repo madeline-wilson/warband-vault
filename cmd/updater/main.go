@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -21,6 +22,8 @@ func main() {
 	launcherVersion := flag.String("launcher-version", buildinfo.Version, "launcher protocol version")
 	installRoot := flag.String("install-root", "", "installation root")
 	downloadOnly := flag.Bool("download", false, "download and verify the selected package")
+	install := flag.Bool("install", false, "download, verify, stage, and activate the selected package")
+	restart := flag.Bool("restart", false, "restart through the launcher after --install")
 	stagePackage := flag.String("stage-package", "", "verified package archive to stage")
 	stageVersion := flag.String("stage-version", "", "version directory to stage")
 	allowHTTP := flag.Bool("allow-http", false, "allow HTTP URLs for local tests")
@@ -89,15 +92,53 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Update available: %s\n", selection.Version)
-	if *downloadOnly {
+	if *downloadOnly || *install {
 		root := requiredRoot(*installRoot)
 		path, err := downloader.DownloadArtifact(ctx, selection.Asset.URL, filepath.Join(root, "downloads"), selection.Asset.Size, selection.Asset.SHA256, *allowHTTP)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "download failed: %v\n", err)
 			os.Exit(1)
 		}
+		if *install {
+			if _, err := update.StageVersion(ctx, update.InstallOptions{
+				InstallRoot:       root,
+				Version:           selection.Version,
+				PackagePath:       path,
+				MainExecutable:    platform.ExecutableName("warband-vault"),
+				UpdaterExecutable: platform.ExecutableName("warband-vault-updater"),
+			}); err != nil {
+				fmt.Fprintf(os.Stderr, "install failed: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Installed %s\n", selection.Version)
+			if *restart {
+				launcher := filepath.Join(root, platform.ExecutableName("warband-vault-launcher"))
+				if _, err := os.Stat(launcher); err != nil {
+					macLauncher := filepath.Clean(filepath.Join(root, "..", "..", "MacOS", "Warband Vault"))
+					if _, macErr := os.Stat(macLauncher); macErr == nil {
+						launcher = macLauncher
+					} else {
+						fmt.Fprintf(os.Stderr, "resolve launcher: %v\n", err)
+						os.Exit(1)
+					}
+				}
+				if err := startLauncher(launcher, root); err != nil {
+					fmt.Fprintf(os.Stderr, "restart failed: %v\n", err)
+					os.Exit(1)
+				}
+			}
+			return
+		}
 		fmt.Println(path)
 	}
+}
+
+func startLauncher(launcher, root string) error {
+	cmd := exec.Command(launcher)
+	cmd.Env = append(os.Environ(), platform.InstallRootEnv+"="+root)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Start()
 }
 
 func requiredRoot(value string) string {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"image/color"
 	"net/url"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	fyneapp "fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
@@ -40,6 +42,7 @@ type mainWindow struct {
 	campaigns []campaign.Campaign
 	selected  *campaign.Campaign
 	list      *widget.List
+	listHost  *fyne.Container
 	roster    *fyne.Container
 	status    binding.String
 	busy      bool
@@ -48,6 +51,7 @@ type mainWindow struct {
 
 func Run(services *app.Services) {
 	a := fyneapp.NewWithID("com.warbandvault.app")
+	a.Settings().SetTheme(newVaultTheme())
 	w := a.NewWindow("Warband Vault")
 	w.Resize(fyne.NewSize(1180, 760))
 	m := &mainWindow{
@@ -64,6 +68,29 @@ func Run(services *app.Services) {
 }
 
 func (m *mainWindow) build() {
+	m.list = m.newCampaignList()
+	m.listHost = container.NewStack(m.list)
+	toolbar := widget.NewToolbar(
+		widget.NewToolbarAction(theme.ContentAddIcon(), func() { m.showCampaignEditor(nil) }),
+		widget.NewToolbarAction(theme.AccountIcon(), func() { m.showCharacterEditor(nil) }),
+		widget.NewToolbarSeparator(),
+		widget.NewToolbarAction(theme.UploadIcon(), m.importCampaign),
+		widget.NewToolbarAction(theme.DownloadIcon(), m.exportCampaign),
+		widget.NewToolbarAction(theme.DocumentPrintIcon(), m.printRoster),
+		widget.NewToolbarSeparator(),
+		widget.NewToolbarAction(theme.SettingsIcon(), m.showSettings),
+		widget.NewToolbarAction(theme.ViewRefreshIcon(), m.checkForUpdates),
+	)
+	leftTitle := widget.NewLabelWithStyle("Campaigns", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	leftSubtitle := widget.NewLabel("warband registry")
+	left := container.NewBorder(container.NewVBox(leftTitle, leftSubtitle, widget.NewSeparator()), nil, nil, nil, m.listHost)
+	split := container.NewHSplit(left, container.NewVScroll(m.roster))
+	split.Offset = 0.27
+	status := widget.NewLabelWithData(m.status)
+	m.window.SetContent(container.NewBorder(toolbar, status, nil, nil, split))
+}
+
+func (m *mainWindow) newCampaignList() *widget.List {
 	m.list = widget.NewList(
 		func() int { return len(m.campaigns) },
 		func() fyne.CanvasObject { return widget.NewLabel("") },
@@ -90,22 +117,7 @@ func (m *mainWindow) build() {
 		}
 		m.loadCampaign(m.campaigns[id].ID)
 	}
-	toolbar := widget.NewToolbar(
-		widget.NewToolbarAction(theme.ContentAddIcon(), func() { m.showCampaignEditor(nil) }),
-		widget.NewToolbarAction(theme.AccountIcon(), func() { m.showCharacterEditor(nil) }),
-		widget.NewToolbarSeparator(),
-		widget.NewToolbarAction(theme.UploadIcon(), m.importCampaign),
-		widget.NewToolbarAction(theme.DownloadIcon(), m.exportCampaign),
-		widget.NewToolbarAction(theme.DocumentPrintIcon(), m.printRoster),
-		widget.NewToolbarSeparator(),
-		widget.NewToolbarAction(theme.SettingsIcon(), m.showSettings),
-		widget.NewToolbarAction(theme.ViewRefreshIcon(), m.checkForUpdates),
-	)
-	left := container.NewBorder(widget.NewLabelWithStyle("Campaigns", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), nil, nil, nil, m.list)
-	split := container.NewHSplit(left, container.NewVScroll(m.roster))
-	split.Offset = 0.27
-	status := widget.NewLabelWithData(m.status)
-	m.window.SetContent(container.NewBorder(toolbar, status, nil, nil, split))
+	return m.list
 }
 
 func (m *mainWindow) loadCampaigns() {
@@ -136,8 +148,12 @@ func (m *mainWindow) loadCampaign(id string) {
 }
 
 func (m *mainWindow) renderEmpty() {
+	title := widget.NewLabelWithStyle("No campaigns", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	prompt := widget.NewLabel("Open a new ledger, then start recruiting.")
 	m.roster.Objects = []fyne.CanvasObject{
-		widget.NewLabelWithStyle("No campaigns", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		m.sectionHeader("VAULT // EMPTY LEDGER", "No active campaign signal"),
+		title,
+		prompt,
 		widget.NewButtonWithIcon("Create example campaign", theme.ContentAddIcon(), m.createExampleCampaign),
 	}
 	m.roster.Refresh()
@@ -145,7 +161,7 @@ func (m *mainWindow) renderEmpty() {
 
 func (m *mainWindow) renderRoster(c *campaign.Campaign) {
 	title := widget.NewLabelWithStyle(c.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-	meta := widget.NewLabel(fmt.Sprintf("%s    Treasury: %d", c.SystemName, c.Treasury))
+	meta := widget.NewLabel(fmt.Sprintf("%s    Treasury: %d crowns    Operators: %d", c.SystemName, c.Treasury, len(c.Characters)))
 	description := widget.NewLabel(c.Description)
 	description.Wrapping = fyne.TextWrapWord
 	actions := container.NewHBox(
@@ -153,7 +169,11 @@ func (m *mainWindow) renderRoster(c *campaign.Campaign) {
 		widget.NewButtonWithIcon("New character", theme.AccountIcon(), func() { m.showCharacterEditor(nil) }),
 		widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), m.deleteSelectedCampaign),
 	)
-	objects := []fyne.CanvasObject{container.NewBorder(nil, nil, nil, actions, container.NewVBox(title, meta, description))}
+	objects := []fyne.CanvasObject{
+		m.sectionHeader("WAR VAULT // ACTIVE CAMPAIGN", "rune-link stable"),
+		container.NewBorder(nil, nil, nil, actions, container.NewVBox(title, meta, description)),
+		widget.NewSeparator(),
+	}
 	for i := range c.Characters {
 		ch := c.Characters[i]
 		objects = append(objects, m.characterCard(&ch))
@@ -174,6 +194,7 @@ func (m *mainWindow) characterCard(ch *character.Character) fyne.CanvasObject {
 	title := container.NewBorder(nil, nil, nil, container.NewHBox(edit, deleteButton), widget.NewLabelWithStyle(ch.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	body := container.NewVBox(
 		title,
+		widget.NewSeparator(),
 		widget.NewLabel(stats),
 		widget.NewLabel("Equipment: "+formatEquipment(ch.Equipment)),
 		widget.NewLabel("Traits: "+formatTraits(ch.Traits)),
@@ -181,6 +202,16 @@ func (m *mainWindow) characterCard(ch *character.Character) fyne.CanvasObject {
 		notes,
 	)
 	return widget.NewCard("", "", body)
+}
+
+func (m *mainWindow) sectionHeader(title, status string) fyne.CanvasObject {
+	titleLabel := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	statusLabel := widget.NewLabel(status)
+	bar := canvas.NewRectangle(color.NRGBA{R: 0x00, G: 0xf0, B: 0xff, A: 0xff})
+	bar.SetMinSize(fyne.NewSize(4, 34))
+	accent := canvas.NewRectangle(color.NRGBA{R: 0xd7, G: 0x9d, B: 0x3d, A: 0xff})
+	accent.SetMinSize(fyne.NewSize(54, 2))
+	return container.NewBorder(nil, accent, bar, nil, container.NewVBox(titleLabel, statusLabel))
 }
 
 func (m *mainWindow) showCampaignEditor(existing *campaign.Campaign) {
@@ -609,10 +640,7 @@ func (m *mainWindow) applySnapshot(campaigns []campaign.Campaign, selected *camp
 	m.list.UnselectAll()
 	m.suppress = false
 	m.campaigns = campaigns
-	m.list.Refresh()
-	for i := range m.campaigns {
-		m.list.RefreshItem(widget.ListItemID(i))
-	}
+	m.replaceCampaignList()
 	if selected != nil {
 		m.applySelectedCampaign(selected)
 		return
@@ -645,6 +673,16 @@ func (m *mainWindow) selectCampaignInList(id string) {
 	m.suppress = true
 	m.list.UnselectAll()
 	m.suppress = false
+}
+
+func (m *mainWindow) replaceCampaignList() {
+	if m.listHost == nil {
+		m.list = m.newCampaignList()
+		return
+	}
+	m.list = m.newCampaignList()
+	m.listHost.Objects = []fyne.CanvasObject{m.list}
+	m.listHost.Refresh()
 }
 
 func (m *mainWindow) run(label string, fn func(context.Context) error) {

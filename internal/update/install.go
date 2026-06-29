@@ -47,8 +47,12 @@ func StageVersion(ctx context.Context, opts InstallOptions) (State, error) {
 		return State{}, fmt.Errorf("create staging directory: %w", err)
 	}
 	extractOpts := DefaultExtractionOptions()
-	extractOpts.ExpectedExecutables = []string{opts.MainExecutable, opts.UpdaterExecutable}
 	if err := ExtractArchive(ctx, opts.PackagePath, staging, extractOpts); err != nil {
+		_ = os.RemoveAll(staging)
+		return State{}, err
+	}
+	payloadDir, err := findVersionPayload(staging, opts.Version, opts.MainExecutable, opts.UpdaterExecutable)
+	if err != nil {
 		_ = os.RemoveAll(staging)
 		return State{}, err
 	}
@@ -56,9 +60,16 @@ func StageVersion(ctx context.Context, opts InstallOptions) (State, error) {
 		_ = os.RemoveAll(staging)
 		return State{}, fmt.Errorf("version %s is already installed", opts.Version)
 	}
-	if err := os.Rename(staging, finalDir); err != nil {
+	if err := os.MkdirAll(filepath.Dir(finalDir), 0o755); err != nil {
+		_ = os.RemoveAll(staging)
+		return State{}, fmt.Errorf("create versions directory: %w", err)
+	}
+	if err := os.Rename(payloadDir, finalDir); err != nil {
 		_ = os.RemoveAll(staging)
 		return State{}, fmt.Errorf("activate staged version: %w", err)
+	}
+	if payloadDir != staging {
+		_ = os.RemoveAll(staging)
 	}
 	next := State{
 		Version:            normalizeVersion(opts.Version),
@@ -71,6 +82,47 @@ func StageVersion(ctx context.Context, opts InstallOptions) (State, error) {
 		opts.Logger.Info("version staged", "version", opts.Version, "executable", next.RelativeExecutable)
 	}
 	return next, nil
+}
+
+func findVersionPayload(staging, version, mainExecutable, updaterExecutable string) (string, error) {
+	candidates := []string{
+		staging,
+		filepath.Join(staging, "versions", version),
+		filepath.Join(staging, "WarbandVault", "versions", version),
+		filepath.Join(staging, "Warband Vault.app", "Contents", "Resources", "WarbandVault", "versions", version),
+	}
+	seen := map[string]struct{}{}
+	for _, candidate := range candidates {
+		clean, err := filepath.Abs(candidate)
+		if err != nil {
+			return "", fmt.Errorf("resolve staged payload: %w", err)
+		}
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		seen[clean] = struct{}{}
+		if err := validateVersionPayload(clean, mainExecutable, updaterExecutable); err == nil {
+			return clean, nil
+		}
+	}
+	return "", fmt.Errorf("archive does not contain installable version payload %s", version)
+}
+
+func validateVersionPayload(dir, mainExecutable, updaterExecutable string) error {
+	for _, executable := range []string{mainExecutable, updaterExecutable} {
+		path := filepath.Join(dir, executable)
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("expected executable %s is absent: %w", executable, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("expected executable %s is a directory", executable)
+		}
+		if err := os.Chmod(path, 0o755); err != nil {
+			return fmt.Errorf("set executable permissions on %s: %w", executable, err)
+		}
+	}
+	return nil
 }
 
 func WaitForHealth(ctx context.Context, marker string, timeout time.Duration) error {

@@ -122,9 +122,21 @@ Update verification order:
 6. Download the selected package to a `.partial` file.
 7. Verify expected byte size and SHA-256.
 8. Extract into staging with path traversal, symlink, hardlink, device file, file count, and expanded-size protections.
-9. Atomically switch `state/current.json` and preserve `previous.json`.
+9. Locate the selected version payload inside either a direct version archive, a full `WarbandVault` install root, or the macOS `.app` resource layout.
+10. Atomically switch `state/current.json` and preserve `previous.json`.
 
 The immediately previous version is retained for rollback. User campaign data is not stored in the install directory and is not modified by binary rollback.
+
+The standalone updater can perform the same install flow used by the GUI:
+
+```sh
+warband-vault-updater \
+  --manifest-url https://example.com/update-manifest.json \
+  --install-root /path/to/WarbandVault \
+  --current-version v0.1.0 \
+  --install \
+  --restart
+```
 
 ## Signing Keys
 
@@ -150,7 +162,7 @@ GitHub Releases act as the static manifest and artifact host. No custom server, 
 
 Windows: The portable ZIP contains the launcher, an initial version directory, state bootstrap, and first-run notes. The binaries are not Authenticode signed, so SmartScreen may warn.
 
-macOS: The ZIP contains a complete `.app` signed with an ad-hoc signature. It is not Apple-notarized and is not signed with Developer ID. Users may need to control-click and choose Open the first time. Do not disable Gatekeeper globally.
+macOS: The ZIP contains a complete `.app` signed with an ad-hoc signature. `Contents/MacOS/Warband Vault` is the stable launcher, and mutable versions live under `Contents/Resources/WarbandVault/versions`. It is not Apple-notarized and is not signed with Developer ID. Users may need to control-click and choose Open the first time. Do not disable Gatekeeper globally.
 
 Linux: The tarball contains the launcher, versioned app directory, desktop file, icon when present, and instructions. AppImage is a future stretch goal.
 
@@ -181,7 +193,7 @@ CI runs formatting, `go vet`, Staticcheck, `go test`, race tests, `govulncheck`,
 
 ## Known Limitations
 
-- The first macOS packaging path is intentionally simple and ad-hoc signed; notarization is out of scope for zero-cost distribution.
+- macOS packaging is ad-hoc signed; notarization is out of scope for zero-cost distribution.
 - AppImage, `.deb`, RPM, Flatpak, and package-manager update integration are not implemented yet.
 - The embedded public update key is a placeholder until a real release key is generated.
 - Health-marker rollback plumbing is implemented in the updater core; full cross-platform process supervision should be exercised on each OS in CI before a public release.
